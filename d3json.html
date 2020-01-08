@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+  <meta charset="utf-8">
+  
+    <style>
+    
+    body {
+      font: 10px sans-serif;
+    }
+  
+  .axis path,
+  .axis line {
+    fill: none;
+    stroke: #000;
+      shape-rendering: crispEdges;
+  }
+  
+  .axis text {
+    fill: black;
+  }
+  
+  .dot {
+    stroke: #000;
+  }
+  
+  
+  </style>
+    <body>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <!-- Create a div where the graph will take place -->
+<div id="my_dataviz"></div>
+    <script>
+    
+    //źródło: https://bl.ocks.org/sebg/6f7f1dd55e0c52ce5ee0dac2b2769f4b
+  
+  var margin = {top: 20, right: 20, bottom: 30, left: 40},
+  width = 960 - margin.left - margin.right,
+  height = 500 - margin.top - margin.bottom;
+  
+  var x = d3.scaleLinear()
+  .range([0, width]);
+  
+  var y = d3.scaleLinear()
+  .range([height, 0]);
+  
+  var color = d3.scaleOrdinal(d3.schemeCategory10);
+  
+  var xAxis = d3.axisBottom(x);
+  
+  var yAxis = d3.axisLeft(y);
+  
+  var svg = d3.select("body").append("svg")
+  .attr("width", width + margin.left + margin.right)
+  .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+  .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+  
+
+d3.json("StreamingHistory0.json", function(error, data, i) {
+   if (error) throw error;
+
+    data.forEach(function(d) {
+    d.msPlayed = +d.msPlayed;
+  });
+  
+  
+  x.domain(d3.extent(data, function(d) { return d.msPlayed; })).nice();
+  y.domain([0, 100]).nice();
+  
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+    .append("text")
+      .attr("class", "label")
+      .attr("x", width)
+      .attr("y", -6)
+      .style("text-anchor", "end")
+      .text("Sepal Width (cm)");
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("class", "label")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Sepal Length (cm)")
+
+  svg.selectAll(".dot")
+      .data(data)
+    .enter().append("circle")
+      .attr("class", "dot")
+      .attr("r", 3.5)
+      .attr("cx", function(d) { return x(d.msPlayed); })
+      .attr("cy", function(d) { return Math.random()*450; })
+      .style("fill", function(d) { return color(d.artistName); });
+
+  var legend = svg.selectAll(".legend")
+      .data(color.domain())
+    .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+  legend.append("rect")
+      .attr("x", width - 18)
+      .attr("width", 18)
+      .attr("height", 18)
+      .style("fill", color);
+
+  legend.append("text")
+      .attr("x", width - 24)
+      .attr("y", 9)
+      .attr("dy", ".35em")
+      .style("text-anchor", "end")
+      .text(function(d) { return d; });
+  
+})
+/*
+var margin = {top: 10, right: 30, bottom: 90, left: 40},
+    width = 460 - margin.left - margin.right,
+    height = 450 - margin.top - margin.bottom;
+
+// append the svg object to the body of the page
+var svg = d3.select("#my_dataviz")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+// Parse the Data
+d3.json("StreamingHistory0.json",  function(error, data) {
+
+if (error) throw error;
+
+
+
+var allGroup = data.map(function(d){return(d.artistName)});
+
+// X axis
+var x = d3.scaleBand()
+  .range([ 0, width ])
+  .domain(allGroup)
+  .padding(0.2);
+svg.append("g")
+  .attr("transform", "translate(0," + height + ")")
+  .call(d3.axisBottom(x))
+  .selectAll("text")
+    .attr("transform", "translate(-10,0)rotate(-45)")
+    .style("text-anchor", "end");
+
+// Add Y axis
+var y = d3.scaleLinear()
+  .domain([0, 30000])
+  .range([ height, 0]);
+svg.append("g")
+  .call(d3.axisLeft(y));
+
+// Bars
+svg.selectAll("mybar")
+  .data(data)
+  .enter()
+  .append("rect")
+    .attr("x", function(d) { return x(d.Country); })
+    .attr("width", x.bandwidth())
+    .attr("fill", "#69b3a2")
+    // no bar at the beginning thus:
+    .attr("height", function(d) { return height - y(0); }) // always equal to 0
+    .attr("y", function(d) { return y(0); })
+
+// Animation
+svg.selectAll("rect")
+  .transition()
+  .duration(800)
+  .attr("y", function(d) { return y(d.msPlayed); })
+  .attr("height", function(d) { return height - y(d.msPlayed); })
+  .delay(function(d,i){ return(i*100)})
+
+})
+*/  
+  
+  </script>
