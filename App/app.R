@@ -1,6 +1,7 @@
 library(shiny)
 library(tidyverse)
 library(rjson)
+library(shinythemes)
 library(lubridate)
 library(r2d3)
 
@@ -9,11 +10,11 @@ data$msPlayed <- data$msPlayed/(1000*3600)
 data$endTime <- as.character(data$endTime)
 data$endTime <- fast_strptime(data$endTime, "%Y-%m-%d %H:%M:%S",tz="UTC")
 data$endTime <- as.POSIXct(data$endTime)
-x <- data %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
-choices <- unique(x$artistName)
+x1 <- data %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
+choices <- unique(x1$artistName)
 
 
-ui <- fluidPage(
+ui <- fluidPage(theme = shinytheme("superhero"),
     
   
     sidebarLayout(
@@ -43,39 +44,53 @@ ui <- fluidPage(
         )),
         
         mainPanel(
-            plotOutput("distPlot")
+            plotOutput("distPlot",click="click"),
+            verbatimTextOutput("click_info")
+            
         )
     )
 )
 
 
 server <- function(input, output) {
-
+  
+ 
     output$distPlot <- renderPlot({
-        data1 <- data %>% filter(endTime>= input$date, endTime <= input$date2)
         
+        data1 <- data %>% filter(endTime>= input$date, endTime <= input$date2)
+        x <- data1 %>% filter(artistName == input$var) %>% group_by(song = trackName) %>% 
+            summarise(time = sum(msPlayed)) %>% 
+            arrange(desc(time)) %>% slice(1:10)
+        y <- data1 %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
+      
         
         if(input$checkbox==TRUE){
-            x <- data1 %>% filter(artistName == input$var) %>% group_by(song = trackName) %>% 
-                summarise(time = sum(msPlayed)) %>% 
-                arrange(desc(time)) %>% slice(1:10)
             ggplot(x, aes(x=reorder(song,-time), y=time)) + 
                 geom_bar(stat="identity", width=.5,fill="#1D428A")+theme_minimal()+
                 theme(axis.text.x = element_text(angle = 45, hjust = 1,size=13),axis.text.y =element_text(size=15))+
                 xlab(element_blank())+ylab("Hours")
+          
         }
         else{
-            x <- data1 %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
-            ggplot(x, aes(x=reorder(artistName,-time), y=time)) + 
+            
+            ggplot(y, aes(x=reorder(artistName,-time), y=time)) + 
                 geom_bar(stat="identity", width=.5,fill="#1D428A")+theme_minimal()+
                 theme(axis.text.x = element_text(angle = 45, hjust = 1,size=13),axis.text.y =element_text(size=15))+
                 xlab(element_blank())+ylab("Hours")
         }
+      
      
 
     })
+ 
+    observeEvent(input$click,{
+       
+        lvls <- unique(x1$artistName)
+        name <- lvls[round(input$click$x)]
+        output$click_info <- renderPrint({name})
+        browseURL(paste0("https://www.youtube.com/results?search_query=",name))
+    })
 }
-
 
 
 shinyApp(ui = ui, server = server)
