@@ -4,102 +4,110 @@ library(rjson)
 library(shinythemes)
 library(lubridate)
 library(r2d3)
-library(jsonlite)
 
-
-data1 <- fromJSON("/home/pawel/Documents/MyData/StreamingHistory0.json")
-data2 <- fromJSON("/home/pawel/Documents/MyData/StreamingHistory1.json")
-data <- rbind(data1, data2)
+data <- as_data_frame(read_csv("./dane.csv"))
 data$msPlayed <- data$msPlayed/(1000*3600)
 data$endTime <- as.character(data$endTime)
-data$endTime <- fast_strptime(data$endTime, "%Y-%m-%d %H:%M",tz="UTC")
-
-# data <- as_data_frame(read_csv("./dane.csv"))
-# data$msPlayed <- data$msPlayed/(1000*3600)
-# data$endTime <- as.character(data$endTime)
-# data$endTime <- fast_strptime(data$endTime, "%Y-%m-%d %H:%M:%S",tz="UTC")
-
+data$endTime <- fast_strptime(data$endTime, "%Y-%m-%d %H:%M:%S",tz="UTC")
 data$endTime <- as.POSIXct(data$endTime)
-x1 <- data %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
+x1<- data %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
 choices <- unique(x1$artistName)
+
+
 
 
 ui <- fluidPage(theme = shinytheme("superhero"),
                 
-                
                 sidebarLayout(
-                    
-                    
                     sidebarPanel(width=4,
                                  titlePanel("Time played"),
                                  
-                                 checkboxInput("checkbox", label = "Plot by artist", value = FALSE ),
-                                 
-                                 hr(),
-                                 fluidRow(column(3, verbatimTextOutput("value"))),
-                                 
-                                 selectInput("var", 
-                                             label = "Choose artist to show his songs",
-                                             choices = choices,
-                                             selected = "Arctic Monkeys"),      # Konkretny wykonawca - do zmiany
                                  dateInput('date',
                                            label = 'First Available Date',
                                            value = min(data$endTime)
                                  )   ,
-                                 dateInput('date2',
+                                 dateInput('date1',
                                            label = 'Last available Date',
                                            value = max(data$endTime)
                                            
-                                           
-                                 )),
+                                 ),
+                                 actionButton("button", "Return to all artists")
+                                 # guzik do wracania z artysty do calosci
+                    ),
                     
                     mainPanel(
-                        plotOutput("distPlot",click="click"),
-                        verbatimTextOutput("click_info")
-                        
+                        plotOutput("distPlot",click="click")
                     )
                 )
 )
 
-
 server <- function(input, output) {
     
+    selected_data <- reactiveValues(
+        selected = data_frame(),
+        x1  = data_frame(),
+        choices  = data_frame(),
+        songs = data_frame(),
+        click = FALSE # flaga potrzebna do klikania i odklikiwania artystow
+    )
     
-    output$distPlot <- renderPlot({
-        
-        data1 <- data %>% filter(endTime>= input$date, endTime <= input$date2)
-        x <- data1 %>% filter(artistName == input$var) %>% group_by(song = trackName) %>% 
-            summarise(time = sum(msPlayed)) %>% 
-            arrange(desc(time)) %>% slice(1:10)
-        y <- data1 %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
-        
-        
-        if(input$checkbox==TRUE){
-            ggplot(x, aes(x=reorder(song,-time), y=time)) + 
-                geom_bar(stat="identity", width=.5,fill="#1D428A")+theme_minimal()+
-                theme(axis.text.x = element_text(angle = 45, hjust = 1,size=13),
-                      axis.text.y =element_text(size=15))+
-                xlab(element_blank())+ylab("Hours")
-            
+    observeEvent({input$date
+        input$date1},{
+            selected_data$selected<- data %>% filter(endTime>= input$date, endTime <= input$date1)
+            selected_data$selected <- as.data.frame(selected_data$selected)
+            selected_data$x1<- selected_data$selected %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% 
+                arrange(desc(time)) %>% slice(1:10)
+            selected_data$choices <- unique(selected_data$x1$artistName)
+        })
+    
+    # rysuje wykres dla konkretnych artystow
+    observeEvent(input$click, {
+        if(!selected_data$click) # sprawdzam czy juz artysta jest wybrany czy jeszcze nie
+        {
+            selected_data$click = TRUE
+            lvls <- selected_data$choices
+            name <- lvls[round(input$click$x)]
+            output$distPlot <- renderPlot({
+                
+                y <- selected_data$selected %>% filter(artistName == name) %>%
+                    group_by(song = trackName) %>% 
+                    summarise(time = sum(msPlayed)) %>% 
+                    arrange(desc(time)) %>% slice(1:10)
+                
+                selected_data$songs <- y
+                ggplot(y, aes(x=reorder(song,-time), y=time)) + 
+                    geom_bar(stat="identity", width=.5,fill="#1D428A")+theme_minimal()+
+                    theme(axis.text.x = element_text(angle = 45, hjust = 1,size=13),axis.text.y =element_text(size=15))+
+                    xlab(element_blank())+ylab("Hours")
+            })
         }
-        else{
+    })
+    
+    # rysuje wykres dla wszystkich artystow jezeli uzytkownik kliknie przycisk
+    observeEvent(input$button, {
+        selected_data$click = FALSE
+        output$distPlot <- renderPlot({
             
-            ggplot(y, aes(x=reorder(artistName,-time), y=time)) + 
+            x <- selected_data$selected %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% 
+                arrange(desc(time)) %>% slice(1:10)
+            
+            ggplot(x, aes(x=reorder(artistName,-time), y=time)) + 
                 geom_bar(stat="identity", width=.5,fill="#1D428A")+theme_minimal()+
                 theme(axis.text.x = element_text(angle = 45, hjust = 1,size=13),axis.text.y =element_text(size=15))+
                 xlab(element_blank())+ylab("Hours")
-        }
-        
-        
-        
+        })
     })
     
-    observeEvent(input$click,{
+    # zanim klikniemy przycisk albo wybierzemy artyste rysuje wszystkich artystow
+    output$distPlot <- renderPlot({
         
-        lvls <- unique(x1$artistName)
-        name <- lvls[round(input$click$x)]
-        output$click_info <- renderPrint({name})
-        browseURL(paste0("https://www.youtube.com/results?search_query=",name))
+        x <- selected_data$selected %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% 
+            arrange(desc(time)) %>% slice(1:10)
+        
+        ggplot(x, aes(x=reorder(artistName,-time), y=time)) + 
+            geom_bar(stat="identity", width=.5,fill="#1D428A")+theme_minimal()+
+            theme(axis.text.x = element_text(angle = 45, hjust = 1,size=13),axis.text.y =element_text(size=15))+
+            xlab(element_blank())+ylab("Hours")
     })
 }
 
