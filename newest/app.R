@@ -94,7 +94,11 @@ server <- function(input, output, session) {
         selected_spotidane$end_date <- input$daterange1[2]
     })
     observeEvent(input$click,{
-        if(!selected_spotidane$click) {selected_spotidane$click = TRUE}
+        if(!selected_spotidane$click) {
+            selected_spotidane$click = TRUE
+        selected_spotidane$clicked[1] <-ifelse(!is.null(input$click$y), input$click$y, selected_spotidane$clicked[1])
+        }
+        else{return(NULL)}
         
     })
     observeEvent(input$button,{
@@ -170,7 +174,6 @@ server <- function(input, output, session) {
         }
         else{
             #wykres po kliknieciu
-            selected_spotidane$clicked[1] <-ifelse(!is.null(input$click$y), input$click$y, selected_spotidane$clicked[1])
             
             lvls <- selected_spotidane$choices
             selected_spotidane$selected <- lvls[21 - round(selected_spotidane$clicked[1])]
