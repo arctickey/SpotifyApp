@@ -1,0 +1,12 @@
+name: appreadfile
+title: appreadfile
+username:
+account: pawel99k
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1689481
+bundleId: 2747225
+url: https://pawel99k.shinyapps.io/appreadfile/
+when: 1579727058.36561
+asMultiple: FALSE
+asStatic: FALSE

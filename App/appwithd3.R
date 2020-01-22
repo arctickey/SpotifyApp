@@ -17,15 +17,22 @@ choices <- unique(x1$artistName)
 
 
 ui <- fluidPage(theme = shinytheme("superhero"),
+                titlePanel("Graph"),
+
+                d3Output("d3"),
+
+                hr(),
                 
-                sidebarLayout(
-                    sidebarPanel(width=4,
+                fluidRow(
+                    column(4,
+                           wellPanel(width=4,
                                  titlePanel("Time played"),
                                  
                                  dateInput('date',
                                            label = 'First Available Date',
                                            value = min(data$endTime)
                                  )   ,
+                                 
                                  dateInput('date1',
                                            label = 'Last available Date',
                                            value = max(data$endTime)
@@ -33,12 +40,9 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                                  ),
                                  actionButton("button", "Return to all artists")
                                  # guzik do wracania z artysty do calosci
-                    ),
+                    )),
                     
-                    mainPanel(
-                      d3Output("d3")
-                        #plotOutput("distPlot",click="click")
-                    )
+                        
                 )
 )
 
