@@ -107,16 +107,18 @@ tryCatch(
             
                     
         if(input$files$type[var] %in% c("text/csv", "application/csv")){
-            toBind <-  as_data_frame(read.csv(input$files$datapath[var]))
+            toBind <-  as.data.frame(as_data_frame(read.csv(input$files$datapath[var])))
+            
             if(all(colnames(toBind) == c("endTime", "artistName", "trackName", "msPlayed"))){
+                toBind$endTime <- as.character(toBind$endTime)
+                toBind$endTime <- substr(toBind$endTime, start = 1, stop = nchar(toBind$endTime)-3)
                 spotidane <- rbind(spotidane, toBind)
-               
             }
         }
         if(input$files$type[var] %in% c("application/json", "text/json")){
             toBind <- as.data.frame(fromJSON(input$files$datapath[var]))
             if(all(colnames(toBind) == c("endTime", "artistName", "trackName", "msPlayed"))){
-            spotidane <- rbind(spotidane, toBind)
+                spotidane <- rbind(spotidane, toBind)
             }
             }
         }
@@ -124,7 +126,7 @@ tryCatch(
         spotidane$endTime <- as.character(spotidane$endTime)
         spotidane$endTime <- fast_strptime(spotidane$endTime, "%Y-%m-%d %H:%M",tz="UTC")
         spotidane$endTime <- as.POSIXct(spotidane$endTime)
-        cat(spotidane$endTime[1])
+
         },
         error = function(e) {
         # return a safeError if a parsing error occurs
