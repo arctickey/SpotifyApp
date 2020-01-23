@@ -164,12 +164,10 @@ server <- function(input, output, session) {
                 filter(endTime <= selected_spotidane$end_date)%>%
                 group_by(artistName) %>% summarise(uniquesongs = length(unique(trackName)), time = sum(msPlayed)) %>%
                 arrange(desc(time)) %>% slice(1:20)
-            x = selected_spotidane[["x1"]]
+            x <- selected_spotidane[["x1"]]
             selected_spotidane$choices <- selected_spotidane[["x1"]]$artistName
-            cat(x[["artistName"]][1])
-            if(nrow(x)==0) {
+            if(nrow(selected_spotidane[["x1"]])==0 || is.na(selected_spotidane[["x1"]][["artistName"]])) {
                 plot.new()
-             
                 text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników")
             }
             else{
