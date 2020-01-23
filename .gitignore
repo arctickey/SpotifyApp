@@ -38,3 +38,4 @@ vignettes/*.pdf
 /appreadfile/rsconnect
 # R Environment Variables
 .Renviron
+.Rproj.user
