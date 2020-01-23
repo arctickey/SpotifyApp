@@ -179,7 +179,7 @@ server <- function(input, output, session) {
             else{
             ggplot(selected_spotidane[["x1"]], aes(x=reorder(artistName,-time), y=time)) +
                 geom_bar(stat="identity", width=.7,fill="#1D428A")+
-                theme_minimal()+
+                theme_bw()+
                 geom_text(aes(label = ifelse(time==max(time),paste0("Liczba przesłuchanych różnych utworów wykonawcy: ", uniquesongs), uniquesongs)),
                           size = 4.6, hjust = "top", nudge_y = -0.2, color = "white") +
                 theme(axis.text.x = element_text(hjust = 1,size=11),
