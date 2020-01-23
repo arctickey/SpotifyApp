@@ -21,24 +21,23 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                 
                 sidebarLayout(
                     sidebarPanel(width=4,
-                                 titlePanel("Time played"),
+                                 titlePanel("Analiza danych słuchania Spotify"),
                                  
-                                 dateRangeInput("daterange1", "Date range:",
+                                 dateRangeInput("daterange1", "Zakres dat:",
                                                 start = "2018-12-01",
                                                 end   = "2020-01-31",
                                                 language = "pl"),
                                  hr(),
                                  
-                                 actionButton("zima", "Winter", width = "100px"),
-                                 actionButton("wiosna", "Spring", width = "100px"),
-                                 actionButton("lato", "Summer", width = "100px"),
-                                 actionButton("jesien", "Autumn", width = "100px"),
+                                 actionButton("zima", "Zima", width = "100px"),
+                                 actionButton("wiosna", "Wiosna", width = "100px"),
+                                 actionButton("lato", "Lato", width = "100px"),
+                                 actionButton("jesien", "Jesień", width = "100px"),
                                  hr(),
-                                 fileInput('files', 'Upload your data', multiple = TRUE,
+                                 fileInput('files', 'Załaduj swoje dane', multiple = TRUE,
                                            accept = c("text/csv",
                                                       "text/comma-separated-values,text/plain",
-                                                      ".csv", ".json"), width = NULL),
-                                 actionButton("button", "Return to all artists")
+                                                      ".csv", ".json"), width = NULL)
                                  # guzik do wracania z artysty do calosci
                     ),
                     
@@ -57,6 +56,8 @@ server <- function(input, output, session) {
         clicked = numeric(),
         songs = data_frame(),
         click = FALSE, # flaga potrzebna do klikania i odklikiwania artystow
+        comeback_possible = FALSE, # do powrotu z drugiego wykresu
+        maxvalue = numeric(), #tez do powrotu
         begin_date = date("2019-01-01"),
         end_date = date("2019-12-31")
     )
@@ -96,21 +97,29 @@ server <- function(input, output, session) {
     observeEvent(input$click,{
         if(!selected_spotidane$click) {
             selected_spotidane$click = TRUE
-        selected_spotidane$clicked[1] <-ifelse(!is.null(input$click$y), input$click$y, selected_spotidane$clicked[1])
+            #zapisanie wykonawcy jaki ma byc wyswietlany w drugim oknie - o ile click$y występuje
+            selected_spotidane$clicked[1] <-ifelse(!is.null(input$click$y), input$click$y, selected_spotidane$clicked[1])
         }
-        else{return(NULL)}
-        
+        else{
+            if(input$click$x>1.2 && input$click$x<1.8){
+                if(input$click$y<selected_spotidane$maxvalue*1.06 && input$click$y>selected_spotidane$maxvalue*1.04){
+                    selected_spotidane$click = FALSE
+                }
+                
+            }
+        }
     })
-    observeEvent(input$button,{
-        if(selected_spotidane$click) {selected_spotidane$click = FALSE}
-    })
+    
     
     observeEvent(input$files,{
         # req(input$files)
         
         tryCatch(
             {
+                spotidane$data <- data.frame()
+                selected_spotidane$click = FALSE
                 for(var in 1:length(input$files$datapath)){
+                    cat(input$files$type[var])
                     if(input$files$type[var] %in% c("text/csv", "application/csv")){
                         spotidane$toBind <-  as.data.frame(as_data_frame(read.csv(input$files$datapath[var])))
                         
@@ -129,7 +138,6 @@ server <- function(input, output, session) {
                 }
                 spotidane$data$msPlayed <- spotidane$data$msPlayed/(1000*3600)
                 spotidane$data$endTime <- as.character(spotidane$data$endTime)
-                
                 spotidane$data$endTime <- fast_strptime(spotidane$data$endTime, "%Y-%m-%d %H:%M",tz="UTC")
                 spotidane$data$endTime <- as.POSIXct(spotidane$data$endTime)
                 
@@ -151,15 +159,21 @@ server <- function(input, output, session) {
         
         if(!selected_spotidane$click){
             #cat(paste(selected_spotidane$begin_date, selected_spotidane$end_date, " "))
-            x <- spotidane$data %>%
+            selected_spotidane[["x1"]] <- spotidane$data %>%
                 filter(endTime >= selected_spotidane$begin_date)%>%
                 filter(endTime <= selected_spotidane$end_date)%>%
                 group_by(artistName) %>% summarise(uniquesongs = length(unique(trackName)), time = sum(msPlayed)) %>%
                 arrange(desc(time)) %>% slice(1:20)
-            
-            
-            selected_spotidane$choices <- x$artistName
-            ggplot(x, aes(x=reorder(artistName,-time), y=time)) +
+            x = selected_spotidane[["x1"]]
+            selected_spotidane$choices <- selected_spotidane[["x1"]]$artistName
+            cat(x[["artistName"]][1])
+            if(nrow(x)==0) {
+                plot.new()
+             
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników")
+            }
+            else{
+            ggplot(selected_spotidane[["x1"]], aes(x=reorder(artistName,-time), y=time)) +
                 geom_bar(stat="identity", width=.7,fill="#1D428A")+
                 theme_minimal()+
                 geom_text(aes(label = ifelse(time==max(time),paste0("Liczba przesłuchanych różnych utworów wykonawcy: ", uniquesongs), uniquesongs)),
@@ -171,6 +185,8 @@ server <- function(input, output, session) {
                 scale_y_continuous(position = "right") +
                 scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) abbreviate(t, minlength = 23)) +
                 coord_flip()
+                
+            }
         }
         else{
             #wykres po kliknieciu
@@ -199,6 +215,8 @@ server <- function(input, output, session) {
                 mutate(real = zwrocliteregodzine(endTime)) %>%
                 count(weekday)
             
+            selected_spotidane$maxvalue = max(y$n)
+            
             # mutate(hour = {
             #     hours = format(strptime(endTime,"%Y-%m-%d %H:%M"),'%H')
             #     minutes = as.character(as.numeric(format(strptime(endTime,"%Y-%m-%d %H:%M"),'%M')) %/% 30 * 30)
@@ -206,14 +224,25 @@ server <- function(input, output, session) {
             #     paste(weekday, paste(hours, minutes, sep = ":"))
             # }) %>%
             # arrange(real)
-            
+            if(nrow(y)==0) {
+                plot.new()
+                
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników")
+            }
+            else{
             ggplot(y, aes(x = factor(weekday, weekdays(date("2020-01-20") + 0:6)), y = n, group = 1)) +
             #ggplot(y, aes(x = real)) +
                 geom_point( size = 5, color = "red") +
                 geom_line(color = "red") +
+                annotate("text", x = 1.5, y =  selected_spotidane$maxvalue*1.05, label = "bold(Powróć)", parse = TRUE)+
+                annotate("segment", x=1.2, xend = 1.8, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.06) +
+                annotate("segment", x=1.2, xend = 1.8, y = selected_spotidane$maxvalue*1.04, yend = selected_spotidane$maxvalue*1.04) +
+                annotate("segment", x=1.2, xend = 1.2, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
+                annotate("segment", x=1.8, xend = 1.8, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
                 theme_minimal()+
                 xlab(selected_spotidane$selected) +
                 ylab("Ilość odtworzeń")
+                }
         }
     })
     })
