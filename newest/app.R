@@ -24,33 +24,39 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                 
                 sidebarLayout(
                     sidebarPanel(width=4,
-                                 titlePanel("Analiza danych słuchania Spotify"),
-                                 verbatimTextOutput("results"),
+                                 titlePanel("SpotiData - sprawdź swoje statystyki słuchania", windowTitle = "SpotiData"),
+                                 hr(),
+                                 actionButton("wiosna", "Wiosna", width = "110px"),
+                                 actionButton("lato", "Lato", width = "110px"),
+                                 actionButton("jesien", "Jesień", width = "110px"),
+                                 actionButton("zima", "Zima", width = "110px"),
+                                 actionButton("resetdat", "Reset dat", width = "220px"),
+                                 hr(),
                                  dateRangeInput("daterange1", "Zakres dat:",
                                                 start = "2018-12-01",
                                                 end   = "2020-01-31",
-                                                language = "pl"),
+                                                language = "pl",
+                                                weekstart = 1,
+                                                separator = " do "),
                                  hr(),
-                                 
-                                 actionButton("zima", "Zima", width = "100px"),
-                                 actionButton("wiosna", "Wiosna", width = "100px"),
-                                 actionButton("lato", "Lato", width = "100px"),
-                                 actionButton("jesien", "Jesień", width = "100px"),
-                                 actionButton("resetdat", "Reset dat", width = "200px"),
-                                 hr(),
-                                 fileInput('files', 'Załaduj swoje dane', multiple = TRUE,
+                                 fileInput('files', 'Załaduj swoje dane:', multiple = TRUE,
                                            accept = c("text/csv",
                                                       "text/comma-separated-values,text/plain",
-                                                      ".csv", ".json"), width = NULL),
+                                                      ".csv", ".json"),
+                                           buttonLabel = "Twoje pliki:",
+                                           placeholder = "Brak pliku",
+                                           width = "220px"),
                                  tags$script('
                                      pressedKeyCount = 0;
                                      $(document).on("keydown", function (e) {
                                       Shiny.onInputChange("pressedKey", pressedKeyCount++);
                                       Shiny.onInputChange("key", e.which);
-                                      });')
-                    ),
+                                      });'),
+                                 hr(),
+                                htmlOutput("Opis")
+                                                     ),
                     mainPanel(
-                        plotOutput("distPlot",click="click", height = "800px")
+                        plotOutput("distPlot",click="click", height = "672px")
                     )
                 )
 )
@@ -58,30 +64,34 @@ ui <- fluidPage(theme = shinytheme("superhero"),
 server <- function(input, output, session) {
     
   
-    selected_spotidane <- reactiveValues(
-        selected = character(),
-        x1  = data_frame(),
-        choices  = data_frame(),
-        clicked = numeric(),
-        songs = data_frame(),
-        click = FALSE, # flaga potrzebna do klikania i odklikiwania artystow
+    selected_spotidane <- reactiveValues(    #po prostu zbior wartosci reaktywnych - nie sugeruj sie nazwa
+        selected = character(),     #nazwa artysty zebrana przez klikniecie na pierwszym wykresie
+        x1  = data_frame(),      #ramka danych tworzona do przedstawienia pierwszego wykresu
+        choices  = data_frame(),  #zbior wszystkich artystow, ktorzy byli wyswietlani 
+        clicked = numeric(),   #potrzebne do sczytania wspolrzednej y klikniecia mysza na pierwszym wykresie
+        click = FALSE, # flaga potrzebna do klikania i odklikiwania artystow - wazna!! decyduje ktory wykres sie wyswietla 
         comeback_possible = FALSE, # do powrotu z drugiego wykresu
-        maxvalue = numeric(), #tez do powrotu
-        begin_date = date("2019-01-01"),
-        end_date = date("2019-12-31"),
-        arrow_index = 0,
-        original_range = TRUE,
+        maxvalue = numeric(), #tez do powrotu - okresla polozenie guzika
+        begin_date = date("2019-01-01"),   #chyba jasne - paczatkowa data zakresu
+        end_date = date("2019-12-31"),   #koncowa
+        arrow_index = 0,   #wylicza jaka wartosc nalezy dodać do '1:20' aby byli wyswieltani artysci z zakresu 1+array_index:20+array_index
+        keep_range = TRUE,  #czy trzymac zakres skali na pierwszym wykresie
+        get_range = TRUE, # czy pobrac zakres skali z pierwszego wykresu
         max_value = numeric(),#potrzebne do okreslenia rozpietosci pierwszego wykresu
+        twentieth = numeric(), # do okreslenia na jakiej wysokosci ma byc obrazek
         first_plot = TRUE, #flaga uzyta tylko przy pierwszym wczytywaniu wykresu
-        x = FALSE  #za duzo tych flag, ale dziala
+        x = FALSE,  #za duzo tych flag, ale dziala - potrzebne bo przy pierwszym wczytaniu plikow zmienia sie daterange, co utrudnia
+        window = c(FALSE, TRUE, FALSE), #ktore okno na dole ma sie wyswietlic?
+        pawelplot = data.frame() #potrzebne do mojego wykresu
+        
     )
     
-    spotidane <-reactiveValues(
-        data = data.frame(),
-        toBind = data.frame()
+    spotidane <-reactiveValues(  #tez nie sugerowac sie nazwa: reaktywne tylko ze inne 
+        data = data.frame(),   #ramka danych zawierajaca informacje z wczytanych plikow
+        toBind = data.frame()  #tymczasowa ramka wykorzystywana przy wczytywaniu danych
     )
     
-    
+    #### obserwatorzy inputow
     observeEvent(input$zima, {
         selected_spotidane$begin_date <- date(format(date("2019-01-01"),"%Y-%m-%d")) 
         selected_spotidane$end_date <- date(format(date("2019-03-31"),"%Y-%m-%d"))
@@ -117,21 +127,47 @@ server <- function(input, output, session) {
           selected_spotidane$x <- TRUE
           }
         else{
-          selected_spotidane$original_range <- FALSE
+          selected_spotidane$get_range <- TRUE
+          selected_spotidane$keep_range <- FALSE
           }
         
     })
     observeEvent(input$pressedKey, {
+      
+        if(!selected_spotidane$click){
       if(input$key %in% c(38, 40)){
         tmp <- selected_spotidane$arrow_index + input$key -39
         if(tmp >=0){
           selected_spotidane$arrow_index <- tmp
           selected_spotidane$first_plot <- FALSE
-          selected_spotidane$original_range <- FALSE
+           selected_spotidane$get_range <- FALSE
+          selected_spotidane$keep_range <- TRUE
+        }
+      }
           
+      }
+        else{
+            if(input$key == 39){ 
+            if(which(selected_spotidane$window)==1){
+                selected_spotidane$window <- c(FALSE, TRUE, FALSE)
+            }
+            else if(which(selected_spotidane$window)==2){
+                selected_spotidane$window <- c(FALSE, FALSE, TRUE)
+            }
+            }
+            else if(input$key == 37){
+                if(which(selected_spotidane$window)==3){
+                    selected_spotidane$window <- c(FALSE, TRUE, FALSE)
+                }
+                else if(which(selected_spotidane$window)==2){
+                    cat(2)
+                    selected_spotidane$window <- c(TRUE, FALSE, FALSE)
+                }
+            }
         }
-        }
+        
       })
+    
     observeEvent(input$click,{
         if(!selected_spotidane$click) {#w przypadku gdy wyswietlany jest 1. wykres
             selected_spotidane$click = TRUE
@@ -139,26 +175,37 @@ server <- function(input, output, session) {
             selected_spotidane$clicked[1] <-ifelse(!is.null(input$click$y), input$click$y, selected_spotidane$clicked[1])
         }
         else{#gdy drugi wykres jest wyswietlany, zbieramy klikniecie dla przycisku powróć
-            if(input$click$x>1.2 && input$click$x<1.8){
+            if(which(selected_spotidane$window)==1){
+            if(input$click$x>0 && input$click$x<3){
                 if(input$click$y<selected_spotidane$maxvalue*1.06 && input$click$y>selected_spotidane$maxvalue*1.04){
                     selected_spotidane$click = FALSE
+                    selected_spotidane$window = c(FALSE, TRUE, FALSE) #reset informacji ktory wykres ma byc wyswietlony na drugim poziomie
                 }
+            }
+                
+                
+            }
+            else if(which(selected_spotidane$window)==2){
+                
+            }
+            else if(which(selected_spotidane$window)==3){
                 
             }
         }
+        
       selected_spotidane$first_plot <- FALSE
     })
+    ######
     
     ######
-    # logika wczytywaniu plikow
+    # logika wczytywania plikow
     #
     observeEvent(input$files,{
-        # req(input$files)
-        
         tryCatch(
             {
                 spotidane$data <- data.frame()
                 selected_spotidane$click = FALSE
+                selected_spotidane$window = c(FALSE, TRUE, FALSE)
                 for(var in 1:length(input$files$datapath)){
                     if(input$files$type[var] %in% c("text/csv", "application/csv")){
                         spotidane$toBind <-  as.data.frame(as_data_frame(read.csv(input$files$datapath[var])))
@@ -179,7 +226,7 @@ server <- function(input, output, session) {
                 if(nrow(spotidane$data)>0){
                 spotidane$data$msPlayed <- spotidane$data$msPlayed/(1000*3600)
                 spotidane$data$endTime <- as.character(spotidane$data$endTime)
-                spotidane$data$endTime <- fast_strptime(spotidane$data$endTime, "%Y-%m-%d %H:%M",tz="UTC")
+                #spotidane$data$endTime <- fast_strptime(spotidane$data$endTime, "%Y-%m-%d %H:%M",tz="UTC")
                 spotidane$data$endTime <- as.POSIXct(spotidane$data$endTime)
                 }
                 
@@ -199,20 +246,19 @@ server <- function(input, output, session) {
     #Wczytywanie obu wykresow - ggplot
       
     output$distPlot <- renderPlot({
-        
-       # req(input$files)
-        
-        #updateDateRangeInput(session, "daterange1", start =  selected_spotidane$begin_date, end = selected_spotidane$end_date)
-        
         if(!selected_spotidane$click){
-            #cat(paste(selected_spotidane$begin_date, selected_spotidane$end_date, " "))
+            ### gdy nie bylo jeszcze klikniecia - pokazujemy pierwszy wykres
+            # wczytanie danych
             selected_spotidane[["x1"]] <- spotidane$data %>%
                 filter(endTime >= selected_spotidane$begin_date)%>%
                 filter(endTime <= selected_spotidane$end_date)%>%
                 group_by(artistName) %>% summarise(uniquesongs = length(unique(trackName)), time = sum(msPlayed)) %>%
-                arrange(desc(time)) %>% slice((1:20) + selected_spotidane$arrow_index)
-            if(selected_spotidane$original_range){
-              selected_spotidane$max_value = selected_spotidane[["x1"]][["time"]][1]
+                arrange(desc(time)) %>% slice((1:20) + selected_spotidane$arrow_index) %>%
+                mutate(artistName = paste0(row_number() + selected_spotidane$arrow_index, ". ", artistName))
+            
+            if(selected_spotidane$get_range){
+              selected_spotidane$max_value = selected_spotidane[["x1"]][["time"]][1] #do trzymania zakresu osi godzin
+              selected_spotidane$twentieth = selected_spotidane[["x1"]][["time"]][20]
               cat(selected_spotidane$max_value)
               }
             x <- selected_spotidane[["x1"]]
@@ -225,22 +271,22 @@ server <- function(input, output, session) {
             p <- ggplot(selected_spotidane[["x1"]], aes(x=reorder(artistName,-time), y=time)) +
                 geom_bar(stat="identity", width=.7,fill="#1D428A")+
                 theme_minimal()+
-                geom_text(aes(label = ifelse(time==max(time),paste0("Liczba przesłuchanych różnych utworów wykonawcy: ", uniquesongs), uniquesongs)),
+                geom_text(aes(label = ifelse(time==selected_spotidane$max_value,paste0("Liczba przesłuchanych różnych utworów wykonawcy: ", uniquesongs), uniquesongs)),
                           size = 4.6, hjust = "top", nudge_y = -0.2, color = "white") +
                 theme(axis.text.x = element_text(hjust = 1,size=11),
                       axis.text.y =element_text(size=15))+
                 xlab(element_blank())+
-                #annotation_raster(clickme, ymin =2 , ymax= 55, xmin =0.7, xmax = 3.7) +
-                ylab(paste0("Liczba przesłuchanych godzin - artyści z miejsc ", selected_spotidane$arrow_index+1, " - ",
-                            selected_spotidane$arrow_index + 21)) +
-                scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) abbreviate(t, minlength = 23)) +
+                ylab("Liczba przesłuchanych godzin artysty") +
+                scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) abbreviate(t, minlength = 20)) +
                 coord_flip()
-            cat(selected_spotidane$original_range)
-            if(selected_spotidane$first_plot){
-              z <- p + annotation_raster(clickme, ymin =2 , ymax= 55, xmin =0.7, xmax = 3.7)
+            #cat(selected_spotidane$original_range)
+            if(selected_spotidane$first_plot){  #jesli ma sie pojawic obrazek - niech sie pojawi
+              z <- p + annotation_raster(clickme, ymin =selected_spotidane$twentieth*1.1,
+                                         ymax= selected_spotidane$twentieth*1.1 + selected_spotidane$max_value/3,
+                                         xmin =0.7, xmax = 3.7)
             }
             else{z <- p}
-            if(selected_spotidane$original_range){
+            if(selected_spotidane$keep_range){
                 z + scale_y_continuous(position = "right", limits = c(0, selected_spotidane$max_value))
             }
             else{
@@ -249,54 +295,80 @@ server <- function(input, output, session) {
             }
         }
         else{
-            #wykres po kliknieciu
-            
+            #####drugi poziom wykresow (po kliknieciu w pierwszy)
             lvls <- selected_spotidane$choices
-            selected_spotidane$selected <- lvls[21 - round(selected_spotidane$clicked[1])]
-            
-            zwrocliteregodzine <- function(d) {
-                x = weekdays(date(format(strptime(d,"%Y-%m-%d %H:%M"),'%Y-%m-%d')))
-                litera = ifelse(x=="poniedziałek", "a",
-                                ifelse(x=="wtorek", "b",
-                                       ifelse(x=="środa", "c",
-                                              ifelse(x=="czwartek", "d",
-                                                     ifelse(x=="piątek", "e",
-                                                            ifelse(x=="sobota", "f","g" ))))))
-                hour = format(strptime(d,"%Y-%m-%d %H:%M"),'%H')
-                minute = format(strptime(d,"%Y-%m-%d %H:%M"),'%M')
-                minute = as.numeric(minute) %/% 30 * 30
-                paste0(litera, " ", hour, ":", minute)
+            artist <- lvls[21 - round(selected_spotidane$clicked[1])]
+            selected_spotidane$selected <- paste(unlist(strsplit(artist, split = " "))[-1], collapse = " ")
+
+            if(which(selected_spotidane$window)==2){
+                ### srodkowy wykres
+             plot.new()
+                text(0.1, 0.2, "Miejsce Filipa")
             }
-            y <- spotidane$data %>%
-                filter(endTime >= selected_spotidane$begin_date)%>%
-                filter(endTime <= selected_spotidane$end_date)%>%
-                filter(artistName == selected_spotidane$selected) %>%
-                mutate(weekday = weekdays(endTime)) %>%
-                mutate(real = zwrocliteregodzine(endTime)) %>%
-                count(weekday)
+            ##koniec srodkowego wykresu
             
-            selected_spotidane$maxvalue = max(y$n)
-            
-            if(nrow(y)==0) {
-                plot.new()
-                
-                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
-            }
-            else{
-            ggplot(y, aes(x = factor(weekday, weekdays(date("2020-01-20") + 0:6)), y = n, group = 1)) +
-                geom_point( size = 5, color = "red") +
-                geom_line(color = "red") + #ponizej - guzik do powrotu do pierwszego wykresu
-                annotate("text", x = 1.5, y =  selected_spotidane$maxvalue*1.05, label = "bold(Powróć)", parse = TRUE)+
-                annotate("segment", x=1.2, xend = 1.8, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.06) +
-                annotate("segment", x=1.2, xend = 1.8, y = selected_spotidane$maxvalue*1.04, yend = selected_spotidane$maxvalue*1.04) +
-                annotate("segment", x=1.2, xend = 1.2, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
-                annotate("segment", x=1.8, xend = 1.8, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
-                theme_minimal()+
-                xlab(paste0(selected_spotidane$selected, " - liczba odsłuchań w dniu tygodnia")) +
-                ylab("Ilość odtworzeń")
+            ##ten z lewej:
+            else if(which(selected_spotidane$window) == 1){
+                zwroc_czas <- function(d) {
+                    weekday = weekdays(d, abbreviate = TRUE)
+                    hour = format(strptime(d,"%Y-%m-%d %H:%M:%S"),'%H')
+                    hour = as.numeric(hour) %/% 6 * 6
+                    paste0(weekday, " ", hour, ":00")
                 }
+                y <- spotidane$data %>%
+                     filter(endTime >= selected_spotidane$begin_date) %>%
+                     filter(endTime <= selected_spotidane$end_date) %>%
+                      filter(artistName == selected_spotidane$selected) %>%
+                    mutate(pora = zwroc_czas(endTime)) %>%
+                    count(pora)
+                
+                selected_spotidane$maxvalue <- max(y$n)
+                
+                if(nrow(y)==0) {
+                    plot.new()
+                    
+                    text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
+                }
+                else{
+                    dayparts <- paste(rep(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), each = 4), c("0:00","6:00", "12:00", "18:00"))
+                    lackingtime <-which(!dayparts %in% y[["pora"]])
+                    y <- rbind(y, data_frame(pora = dayparts[lackingtime], n = rep(0, length(lackingtime))))
+                    ggplot(y, aes(x = factor(pora, dayparts), y = n, group = 1)) +
+                        geom_point(size = 3, color = "red") +
+                        geom_area(alpha = 0.1, fill = "red")+
+                        geom_line(color = "red") + #ponizej - guzik do powrotu do pierwszego wykresu
+                        annotate("text", x = 1.5, y =  selected_spotidane$maxvalue*1.05, label = "bold(Powróć)", parse = TRUE)+
+                        annotate("segment", x=0, xend = 3, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.06) +
+                        annotate("segment", x=0, xend = 3, y = selected_spotidane$maxvalue*1.04, yend = selected_spotidane$maxvalue*1.04) +
+                        annotate("segment", x=0, xend = 0, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
+                        annotate("segment", x=3, xend = 3, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
+                        theme_minimal()+
+                        theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+                        xlab(paste0(selected_spotidane$selected, " - słuchanie w ciągu tygodnia")) +
+                        ylab("Liczba odtworzeń") +
+                        scale_x_discrete(breaks = paste(rep(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), each = 2), c("0:00", "12:00")),
+                                         limits = dayparts)
+                }
+                
+            }
+            ###koniec lewego wykresu
+            else if(which(selected_spotidane$window) == 3){
+                plot.new()
+                text(0.1, 0.9, "Wykres Jacka")
+            }
+            
         }
     })
+    })
+    
+    output$Opis <- renderUI({
+        req(input$files)
+        if(!selected_spotidane$click){
+        HTML(paste("Użyj strzałek na klawiaturze", "   - sprawdź co się stanie!", sep="<br/>"))
+        }
+        else{
+            HTML(paste("Użyj strzałek na klawiaturze", "   - tym razem na boki!", sep="<br/>"))
+        }
     })
 }
 
