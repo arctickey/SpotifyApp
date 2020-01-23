@@ -6,6 +6,8 @@ library(lubridate)
 # library(r2d3)
 library(dplyr)
 library(plotly)
+library(png)
+library(ggplot2)
 
 # spotidane <- as_data_frame(read_csv("./dane.csv"))
 # spotidane$msPlayed <- spotidane$msPlayed/(1000*3600)
@@ -15,6 +17,7 @@ library(plotly)
 # x1<- spotidane %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
 # choices <- unique(x1$artistName)
 
+clickme <- readPNG('clickme.png')
 
 
 ui <- fluidPage(theme = shinytheme("superhero"),
@@ -22,7 +25,7 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                 sidebarLayout(
                     sidebarPanel(width=4,
                                  titlePanel("Analiza danych słuchania Spotify"),
-                                 
+                                 verbatimTextOutput("results"),
                                  dateRangeInput("daterange1", "Zakres dat:",
                                                 start = "2018-12-01",
                                                 end   = "2020-01-31",
@@ -33,11 +36,18 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                                  actionButton("wiosna", "Wiosna", width = "100px"),
                                  actionButton("lato", "Lato", width = "100px"),
                                  actionButton("jesien", "Jesień", width = "100px"),
+                                 actionButton("resetdat", "Reset dat", width = "200px"),
                                  hr(),
                                  fileInput('files', 'Załaduj swoje dane', multiple = TRUE,
                                            accept = c("text/csv",
                                                       "text/comma-separated-values,text/plain",
-                                                      ".csv", ".json"), width = NULL)
+                                                      ".csv", ".json"), width = NULL),
+                                 tags$script('
+                                     pressedKeyCount = 0;
+                                     $(document).on("keydown", function (e) {
+                                      Shiny.onInputChange("pressedKey", pressedKeyCount++);
+                                      Shiny.onInputChange("key", e.which);
+                                      });')
                     ),
                     mainPanel(
                         plotOutput("distPlot",click="click", height = "800px")
@@ -58,7 +68,12 @@ server <- function(input, output, session) {
         comeback_possible = FALSE, # do powrotu z drugiego wykresu
         maxvalue = numeric(), #tez do powrotu
         begin_date = date("2019-01-01"),
-        end_date = date("2019-12-31")
+        end_date = date("2019-12-31"),
+        arrow_index = 0,
+        original_range = TRUE,
+        max_value = numeric(),#potrzebne do okreslenia rozpietosci pierwszego wykresu
+        first_plot = TRUE, #flaga uzyta tylko przy pierwszym wczytywaniu wykresu
+        x = FALSE  #za duzo tych flag, ale dziala
     )
     
     spotidane <-reactiveValues(
@@ -87,12 +102,36 @@ server <- function(input, output, session) {
         selected_spotidane$begin_date <- date("2019-10-01") 
         selected_spotidane$end_date <- date("2019-12-31")
         updateDateRangeInput(session, "daterange1", start =  date("2019-10-01"), end = date("2019-12-31"))
-        
+        })
+    observeEvent(input$resetdat, {
+      selected_spotidane$begin_date <- date("2018-12-01") 
+      selected_spotidane$end_date <- date("2020-01-31")
+      updateDateRangeInput(session, "daterange1", start =  date("2018-12-01"), end = date("2020-01-31"))
     })
+    
     observeEvent(input$daterange1, {
         selected_spotidane$begin_date <- input$daterange1[1]
         selected_spotidane$end_date <- input$daterange1[2]
+        selected_spotidane$arrow_index <- 0
+        if(!selected_spotidane$x){
+          selected_spotidane$x <- TRUE
+          }
+        else{
+          selected_spotidane$original_range <- FALSE
+          }
+        
     })
+    observeEvent(input$pressedKey, {
+      if(input$key %in% c(38, 40)){
+        tmp <- selected_spotidane$arrow_index + input$key -39
+        if(tmp >=0){
+          selected_spotidane$arrow_index <- tmp
+          selected_spotidane$first_plot <- FALSE
+          selected_spotidane$original_range <- FALSE
+          
+        }
+        }
+      })
     observeEvent(input$click,{
         if(!selected_spotidane$click) {#w przypadku gdy wyswietlany jest 1. wykres
             selected_spotidane$click = TRUE
@@ -107,6 +146,7 @@ server <- function(input, output, session) {
                 
             }
         }
+      selected_spotidane$first_plot <- FALSE
     })
     
     ######
@@ -136,11 +176,12 @@ server <- function(input, output, session) {
                         }
                     }
                 }
+                if(nrow(spotidane$data)>0){
                 spotidane$data$msPlayed <- spotidane$data$msPlayed/(1000*3600)
                 spotidane$data$endTime <- as.character(spotidane$data$endTime)
                 spotidane$data$endTime <- fast_strptime(spotidane$data$endTime, "%Y-%m-%d %H:%M",tz="UTC")
                 spotidane$data$endTime <- as.POSIXct(spotidane$data$endTime)
-                
+                }
                 
             },
             error = function(e) {
@@ -169,7 +210,11 @@ server <- function(input, output, session) {
                 filter(endTime >= selected_spotidane$begin_date)%>%
                 filter(endTime <= selected_spotidane$end_date)%>%
                 group_by(artistName) %>% summarise(uniquesongs = length(unique(trackName)), time = sum(msPlayed)) %>%
-                arrange(desc(time)) %>% slice(1:20)
+                arrange(desc(time)) %>% slice((1:20) + selected_spotidane$arrow_index)
+            if(selected_spotidane$original_range){
+              selected_spotidane$max_value = selected_spotidane[["x1"]][["time"]][1]
+              cat(selected_spotidane$max_value)
+              }
             x <- selected_spotidane[["x1"]]
             selected_spotidane$choices <- selected_spotidane[["x1"]]$artistName
             if(nrow(selected_spotidane[["x1"]])==0 || is.na(selected_spotidane[["x1"]][["artistName"]])) {#jesli nie mamy zadnych danych
@@ -177,19 +222,30 @@ server <- function(input, output, session) {
                 text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
             }
             else{
-            ggplot(selected_spotidane[["x1"]], aes(x=reorder(artistName,-time), y=time)) +
+            p <- ggplot(selected_spotidane[["x1"]], aes(x=reorder(artistName,-time), y=time)) +
                 geom_bar(stat="identity", width=.7,fill="#1D428A")+
-                theme_bw()+
+                theme_minimal()+
                 geom_text(aes(label = ifelse(time==max(time),paste0("Liczba przesłuchanych różnych utworów wykonawcy: ", uniquesongs), uniquesongs)),
                           size = 4.6, hjust = "top", nudge_y = -0.2, color = "white") +
                 theme(axis.text.x = element_text(hjust = 1,size=11),
                       axis.text.y =element_text(size=15))+
                 xlab(element_blank())+
-                ylab("Liczba przesłuchanych godzin ") +
-                scale_y_continuous(position = "right") +
+                #annotation_raster(clickme, ymin =2 , ymax= 55, xmin =0.7, xmax = 3.7) +
+                ylab(paste0("Liczba przesłuchanych godzin - artyści z miejsc ", selected_spotidane$arrow_index+1, " - ",
+                            selected_spotidane$arrow_index + 21)) +
                 scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) abbreviate(t, minlength = 23)) +
                 coord_flip()
-                
+            cat(selected_spotidane$original_range)
+            if(selected_spotidane$first_plot){
+              z <- p + annotation_raster(clickme, ymin =2 , ymax= 55, xmin =0.7, xmax = 3.7)
+            }
+            else{z <- p}
+            if(selected_spotidane$original_range){
+                z + scale_y_continuous(position = "right", limits = c(0, selected_spotidane$max_value))
+            }
+            else{
+              z + scale_y_continuous(position = "right")
+            }
             }
         }
         else{
