@@ -277,9 +277,9 @@ server <- function(input, output, session) {
                       axis.text.y =element_text(size=15))+
                 xlab(element_blank())+
                 ylab("Liczba przesłuchanych godzin artysty") +
-                scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) abbreviate(t, minlength = 20)) +
+                scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) ifelse(nchar(t)>20,
+                                                                                                   paste0(substr(t, 1, 20), "..."), t)) +
                 coord_flip()
-            #cat(selected_spotidane$original_range)
             if(selected_spotidane$first_plot){  #jesli ma sie pojawic obrazek - niech sie pojawi
               z <- p + annotation_raster(clickme, ymin =selected_spotidane$twentieth*1.1,
                                          ymax= selected_spotidane$twentieth*1.1 + selected_spotidane$max_value/3,
