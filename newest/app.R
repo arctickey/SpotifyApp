@@ -3,7 +3,7 @@ library(tidyverse)
 library(jsonlite)
 library(shinythemes)
 library(lubridate)
-library(r2d3)
+# library(r2d3)
 library(dplyr)
 library(plotly)
 
@@ -38,9 +38,7 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                                            accept = c("text/csv",
                                                       "text/comma-separated-values,text/plain",
                                                       ".csv", ".json"), width = NULL)
-                                 # guzik do wracania z artysty do calosci
                     ),
-                    
                     mainPanel(
                         plotOutput("distPlot",click="click", height = "800px")
                     )
@@ -49,6 +47,7 @@ ui <- fluidPage(theme = shinytheme("superhero"),
 
 server <- function(input, output, session) {
     
+  
     selected_spotidane <- reactiveValues(
         selected = character(),
         x1  = data_frame(),
@@ -95,12 +94,12 @@ server <- function(input, output, session) {
         selected_spotidane$end_date <- input$daterange1[2]
     })
     observeEvent(input$click,{
-        if(!selected_spotidane$click) {
+        if(!selected_spotidane$click) {#w przypadku gdy wyswietlany jest 1. wykres
             selected_spotidane$click = TRUE
             #zapisanie wykonawcy jaki ma byc wyswietlany w drugim oknie - o ile click$y występuje
             selected_spotidane$clicked[1] <-ifelse(!is.null(input$click$y), input$click$y, selected_spotidane$clicked[1])
         }
-        else{
+        else{#gdy drugi wykres jest wyswietlany, zbieramy klikniecie dla przycisku powróć
             if(input$click$x>1.2 && input$click$x<1.8){
                 if(input$click$y<selected_spotidane$maxvalue*1.06 && input$click$y>selected_spotidane$maxvalue*1.04){
                     selected_spotidane$click = FALSE
@@ -110,7 +109,9 @@ server <- function(input, output, session) {
         }
     })
     
-    
+    ######
+    # logika wczytywaniu plikow
+    #
     observeEvent(input$files,{
         # req(input$files)
         
@@ -119,7 +120,6 @@ server <- function(input, output, session) {
                 spotidane$data <- data.frame()
                 selected_spotidane$click = FALSE
                 for(var in 1:length(input$files$datapath)){
-                    cat(input$files$type[var])
                     if(input$files$type[var] %in% c("text/csv", "application/csv")){
                         spotidane$toBind <-  as.data.frame(as_data_frame(read.csv(input$files$datapath[var])))
                         
@@ -149,8 +149,14 @@ server <- function(input, output, session) {
             }
         )
         
+    #
+    #
+    ########
+      
     
-    
+    #####
+    #Wczytywanie obu wykresow - ggplot
+      
     output$distPlot <- renderPlot({
         
        # req(input$files)
@@ -166,9 +172,9 @@ server <- function(input, output, session) {
                 arrange(desc(time)) %>% slice(1:20)
             x <- selected_spotidane[["x1"]]
             selected_spotidane$choices <- selected_spotidane[["x1"]]$artistName
-            if(nrow(selected_spotidane[["x1"]])==0 || is.na(selected_spotidane[["x1"]][["artistName"]])) {
+            if(nrow(selected_spotidane[["x1"]])==0 || is.na(selected_spotidane[["x1"]][["artistName"]])) {#jesli nie mamy zadnych danych
                 plot.new()
-                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników")
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
             }
             else{
             ggplot(selected_spotidane[["x1"]], aes(x=reorder(artistName,-time), y=time)) +
@@ -179,7 +185,7 @@ server <- function(input, output, session) {
                 theme(axis.text.x = element_text(hjust = 1,size=11),
                       axis.text.y =element_text(size=15))+
                 xlab(element_blank())+
-                ylab("Hours") +
+                ylab("Liczba przesłuchanych godzin ") +
                 scale_y_continuous(position = "right") +
                 scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) abbreviate(t, minlength = 23)) +
                 coord_flip()
@@ -215,30 +221,22 @@ server <- function(input, output, session) {
             
             selected_spotidane$maxvalue = max(y$n)
             
-            # mutate(hour = {
-            #     hours = format(strptime(endTime,"%Y-%m-%d %H:%M"),'%H')
-            #     minutes = as.character(as.numeric(format(strptime(endTime,"%Y-%m-%d %H:%M"),'%M')) %/% 30 * 30)
-            #     minutes = ifelse(nchar(minutes)==1, paste0(0, minutes), minutes)
-            #     paste(weekday, paste(hours, minutes, sep = ":"))
-            # }) %>%
-            # arrange(real)
             if(nrow(y)==0) {
                 plot.new()
                 
-                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników")
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
             }
             else{
             ggplot(y, aes(x = factor(weekday, weekdays(date("2020-01-20") + 0:6)), y = n, group = 1)) +
-            #ggplot(y, aes(x = real)) +
                 geom_point( size = 5, color = "red") +
-                geom_line(color = "red") +
+                geom_line(color = "red") + #ponizej - guzik do powrotu do pierwszego wykresu
                 annotate("text", x = 1.5, y =  selected_spotidane$maxvalue*1.05, label = "bold(Powróć)", parse = TRUE)+
                 annotate("segment", x=1.2, xend = 1.8, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.06) +
                 annotate("segment", x=1.2, xend = 1.8, y = selected_spotidane$maxvalue*1.04, yend = selected_spotidane$maxvalue*1.04) +
                 annotate("segment", x=1.2, xend = 1.2, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
                 annotate("segment", x=1.8, xend = 1.8, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
                 theme_minimal()+
-                xlab(selected_spotidane$selected) +
+                xlab(paste0(selected_spotidane$selected, " - liczba odsłuchań w dniu tygodnia")) +
                 ylab("Ilość odtworzeń")
                 }
         }
