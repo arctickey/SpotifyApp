@@ -8,14 +8,8 @@ library(dplyr)
 library(plotly)
 library(png)
 library(ggplot2)
+options(stringsAsFactors = FALSE)
 
-# spotidane <- as_data_frame(read_csv("./dane.csv"))
-# spotidane$msPlayed <- spotidane$msPlayed/(1000*3600)
-# spotidane$endTime <- as.character(spotidane$endTime)
-# spotidane$endTime <- fast_strptime(spotidane$endTime, "%Y-%m-%d %H:%M:%S",tz="UTC")
-# spotidane$endTime <- as.POSIXct(spotidane$endTime)
-# x1<- spotidane %>% group_by(artistName) %>% summarise(time = sum(msPlayed)) %>% arrange(desc(time)) %>% slice(1:10)
-# choices <- unique(x1$artistName)
 
 clickme <- readPNG('clickme.png')
 
@@ -27,10 +21,10 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                                  titlePanel("SpotiData - sprawdź swoje statystyki słuchania", windowTitle = "SpotiData"),
                                  hr(),
                                  verbatimTextOutput("dz"),
+                                 actionButton("zima", "Zima", width = "110px"),
                                  actionButton("wiosna", "Wiosna", width = "110px"),
                                  actionButton("lato", "Lato", width = "110px"),
                                  actionButton("jesien", "Jesień", width = "110px"),
-                                 actionButton("zima", "Zima", width = "110px"),
                                  actionButton("resetdat", "Reset dat", width = "220px"),
                                  hr(),
                                  dateRangeInput("daterange1", "Zakres dat:",
@@ -95,25 +89,25 @@ server <- function(input, output, session) {
     
     #### obserwatorzy inputow
     observeEvent(input$zima, {
-        selected_spotidane$begin_date <- date(format(date("2019-01-01"),"%Y-%m-%d")) 
-        selected_spotidane$end_date <- date(format(date("2019-03-31"),"%Y-%m-%d"))
-        updateDateRangeInput(session, "daterange1", start =  date("2019-01-01"), end = date("2019-03-31"))
+        # selected_spotidane$begin_date <- date(format(date("2018-12-22"),"%Y-%m-%d")) 
+        # selected_spotidane$end_date <- date(format(date("2019-03-20"),"%Y-%m-%d"))
+        updateDateRangeInput(session, "daterange1", start =  date("2018-12-22"), end = date("2019-03-20"))
         
     })
     observeEvent(input$wiosna, {
-        selected_spotidane$begin_date <- date("2019-04-01") 
-        selected_spotidane$end_date <- date("2019-06-30")
-        updateDateRangeInput(session, "daterange1", start =  date("2019-04-01"), end = date("2019-06-30"))
+        # selected_spotidane$begin_date <- date("2019-03-21") 
+        # selected_spotidane$end_date <- date("2019-06-30")
+        updateDateRangeInput(session, "daterange1", start =  date("2019-03-21"), end = date("2019-06-21"))
     })
     observeEvent(input$lato, {
-        selected_spotidane$begin_date <- date(format(date("2019-07-01"),"%Y-%m-%d")) 
-        selected_spotidane$end_date <- date(format(date("2019-09-30"),"%Y-%m-%d"))
-        updateDateRangeInput(session, "daterange1", start =  date("2019-06-01"), end = date("2019-09-30"))
+        # selected_spotidane$begin_date <- date(format(date("2019-07-01"),"%Y-%m-%d")) 
+        # selected_spotidane$end_date <- date(format(date("2019-09-30"),"%Y-%m-%d"))
+        updateDateRangeInput(session, "daterange1", start =  date("2019-06-22"), end = date("2019-09-22"))
     })
     observeEvent(input$jesien, {
-        selected_spotidane$begin_date <- date("2019-10-01") 
-        selected_spotidane$end_date <- date("2019-12-31")
-        updateDateRangeInput(session, "daterange1", start =  date("2019-10-01"), end = date("2019-12-31"))
+        # selected_spotidane$begin_date <- date("2019-10-01") 
+        # selected_spotidane$end_date <- date("2019-12-31")
+        updateDateRangeInput(session, "daterange1", start =  date("2019-09-23"), end = date("2019-12-21"))
         })
     observeEvent(input$resetdat, {
       selected_spotidane$begin_date <- date("2018-12-01") 
@@ -212,7 +206,9 @@ server <- function(input, output, session) {
         tryCatch(
             {
                 spotidane$data <- data.frame()
-                selected_spotidane$click = FALSE
+                selected_spotidane$click <- FALSE
+                selected_spotidane$arrow_index <- 0
+                selected_spotidane$first_plot <- TRUE
                 selected_spotidane$window = c(FALSE, TRUE, FALSE)
                 for(var in 1:length(input$files$datapath)){
                     if(input$files$type[var] %in% c("text/csv", "application/csv")){
@@ -278,12 +274,13 @@ server <- function(input, output, session) {
             p <- ggplot(selected_spotidane[["x1"]], aes(x=reorder(artistName,-time), y=time)) +
                 geom_bar(stat="identity", width=.7,fill="#1D428A")+
                 theme_minimal()+
-                geom_text(aes(label = ifelse(time==selected_spotidane$max_value,paste0("Liczba przesłuchanych różnych utworów wykonawcy: ", uniquesongs), uniquesongs)),
-                          size = 4.6, hjust = "top", nudge_y = -0.2, color = "white") +
+                # geom_text(aes(label = ifelse(time==selected_spotidane$max_value,paste0("Liczba przesłuchanych różnych utworów wykonawcy: ", uniquesongs), uniquesongs)),
+                #           size = 4.6, hjust = "top", nudge_y = -0.2, color = "white") +
                 theme(axis.text.x = element_text(hjust = 1,size=11),
                       axis.text.y =element_text(size=15))+
                 xlab(element_blank())+
-                ylab("Liczba przesłuchanych godzin artysty") +
+                ylab("Liczba przesłuchanych godzin wykonawcy") +
+              labs(title = "Ranking najdłużej słuchanych wykonawców") +
                 scale_x_discrete(limits = rev(as.factor(x$artistName)), label = function(t) ifelse(nchar(t)>20,
                                                                                                    paste0(substr(t, 1, 20), "..."), t)) +
                 coord_flip()
@@ -367,15 +364,17 @@ server <- function(input, output, session) {
                       annotate("segment", x=0, xend = 0, y = selected_spotidane$maxvalue*1.08, yend = selected_spotidane$maxvalue*1.02) +
                       annotate("segment", x=3, xend = 3, y = selected_spotidane$maxvalue*1.08, yend = selected_spotidane$maxvalue*1.02) +
                       theme_minimal()+
-                      theme(axis.text.x = element_text(angle = 60, hjust = 0.8),
+                      theme(axis.text.x = element_text(hjust = 0.8),
                             legend.position = c(0.85, 0.9),
                             legend.title = element_blank())+
-                      xlab(paste0(selected_spotidane$selected, " - słuchanie w ciągu tygodnia")) +
+                      labs(title = paste0(selected_spotidane$selected, " - liczba odtworzeń w ciągu tygodnia")) +
                       ylab("Liczba odtworzeń") +
-                      scale_x_discrete(breaks = paste(rep(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), each = 2), c("0:00", "12:00")),
-                                       limits = dayparts) +
-                      scale_color_manual(values = c("red", "gray"), labels = c("Wybrany okres", "Wszystkie dostępne daty")) +
-                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany okres", "Wszystkie dostępne daty"))  
+                      xlab(element_blank()) +
+                      scale_x_discrete(breaks = paste(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), "12:00"),
+                                       limits = dayparts,
+                                       labels = weekdays(date("2020-01-20") + 0:6)) +
+                      scale_color_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty")) +
+                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty"))  
                   
                     
                     ###robienie tooltipa: 
@@ -387,7 +386,6 @@ server <- function(input, output, session) {
                      if(readX>0 && length(readY)>0){
                        rectY <- ifelse(1 %in% readY, toplot[round(selected_spotidane$hover[1]), 2], toplot[round(selected_spotidane$hover[1]) + 28, 2])
                        rectY <- as.numeric(rectY)
-                       selected_spotidane$test <- rectY
                        if(2 %in% readY){
                          # pokazujemy wartosc dla wybranego zakresu
                          topartist <- spotidane$data %>%
@@ -399,14 +397,16 @@ server <- function(input, output, session) {
                            count(trackName) %>%
                            arrange(desc(n)) %>%
                            slice(1) %>% pull(trackName)
-                         readX <- ifelse(readX>22, 22, readX)
-                       p + annotate("rect", xmin = readX, ymin = rectY,
-                                    xmax = readX+6, ymax = rectY + selected_spotidane$maxvalue/6, alpha = 0.2) +
-                         annotate("text", x = readX+3, y = rectY + selected_spotidane$maxvalue/12, label = paste("Najczęściej słuchany", "utwór w czasie",
-                                                                                                                 paste0(unlist(strsplit(as.character(toplot[readX, 1]), " "))[1], ", po ", unlist(strsplit(as.character(toplot[readX, 1]), " "))[2], ":"),
-                                                                                                                 ifelse(nchar(topartist)>20,
+                         selected_spotidane$test <- topartist
+                       p + annotate("rect", xmin = ifelse(readX>22, 22, readX), ymin = rectY,
+                                    xmax = ifelse(readX>22, 22, readX)+6, ymax = rectY + selected_spotidane$maxvalue/6, alpha = 0.2) +
+                         annotate("text", x = ifelse(readX>22, 22, readX)+3, y = rectY + selected_spotidane$maxvalue/12, label = paste("Najczęściej słuchany", "utwór w",
+                                                                                                                                  paste0(unlist(strsplit(as.character(toplot[readX, 1]), " "))[1],", ",
+                                                                                                                                  unlist(strsplit(unlist(strsplit(as.character(toplot[readX, 1]), " "))[2], ":"))[1], "-",
+                                                                                                                                  unlist(strsplit(unlist(strsplit(as.character(toplot[readX+1, 1]), " "))[2], ":"))[1]),
+                                                                                                                                 ifelse(nchar(topartist)>20,
                                                                                            paste0(substr(topartist, 1, 18), "..."),
-                                                                                           topartist), "w wybranym okresie",
+                                                                                           topartist),
                                                                                     sep = "\n"))
                        }
                        else{
@@ -417,11 +417,13 @@ server <- function(input, output, session) {
                            count(trackName) %>%
                            arrange(desc(n)) %>%
                            slice(1) %>% pull(trackName)
-                         readX <- ifelse(readX>22, 22, readX)
-                         p + annotate("rect", xmin = readX, ymin = rectY,
-                                      xmax = readX+6, ymax = rectY + selected_spotidane$maxvalue/7, alpha = 0.2)+
-                           annotate("text", x = readX+3, y = rectY + selected_spotidane$maxvalue/14, label = paste("Najczęściej słuchany", "utwór w czasie",
-                                                                                                                   paste0(unlist(strsplit(as.character(toplot[readX, 1]), " "))[1], ", po ", unlist(strsplit(as.character(toplot[readX, 1]), " "))[2], ":"),
+                         selected_spotidane$test <- topartist
+                         p + annotate("rect", xmin = ifelse(readX>22, 22, readX), ymin = rectY,
+                                      xmax = ifelse(readX>22, 22, readX)+6, ymax = rectY + selected_spotidane$maxvalue/7, alpha = 0.2)+
+                           annotate("text", x = ifelse(readX>22, 22, readX)+3, y = rectY + selected_spotidane$maxvalue/14, label = paste("Najczęściej słuchany", "utwór w",
+                                                                                                                                         paste0(unlist(strsplit(as.character(toplot[readX, 1]), " "))[1],", ",
+                                                                                                                                                unlist(strsplit(unlist(strsplit(as.character(toplot[readX, 1]), " "))[2], ":"))[1], "-",
+                                                                                                                                                unlist(strsplit(unlist(strsplit(as.character(toplot[readX+1, 1]), " "))[2], ":"))[1]),
                                                                                                                    ifelse(nchar(topartist)>20,
                                                                                                paste0(substr(topartist, 1, 18), "..."),
                                                                                                topartist),
