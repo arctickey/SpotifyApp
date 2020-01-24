@@ -81,9 +81,7 @@ server <- function(input, output, session) {
         twentieth = numeric(), # do okreslenia na jakiej wysokosci ma byc obrazek
         first_plot = TRUE, #flaga uzyta tylko przy pierwszym wczytywaniu wykresu
         x = FALSE,  #za duzo tych flag, ale dziala - potrzebne bo przy pierwszym wczytaniu plikow zmienia sie daterange, co utrudnia
-        window = c(FALSE, TRUE, FALSE), #ktore okno na dole ma sie wyswietlic?
-        pawelplot = data.frame() #potrzebne do mojego wykresu
-        
+        window = c(FALSE, TRUE, FALSE) #ktore okno na dole ma sie wyswietlic?
     )
     
     spotidane <-reactiveValues(  #tez nie sugerowac sie nazwa: reaktywne tylko ze inne 
@@ -320,34 +318,51 @@ server <- function(input, output, session) {
                      filter(endTime <= selected_spotidane$end_date) %>%
                       filter(artistName == selected_spotidane$selected) %>%
                     mutate(pora = zwroc_czas(endTime)) %>%
-                    count(pora)
+                    count(pora) %>%
+                  mutate(grupa = 1)
                 
-                selected_spotidane$maxvalue <- max(y$n)
+                y2 <- spotidane$data %>%
+                  filter(artistName == selected_spotidane$selected) %>%
+                  mutate(pora = zwroc_czas(endTime)) %>%
+                  count(pora) %>%
+                  mutate(grupa = 2)
                 
-                if(nrow(y)==0) {
+                selected_spotidane$maxvalue <- max(y2$n)
+                
+                if(nrow(y)==0 && nchar(y2)==0) {
                     plot.new()
-                    
                     text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
                 }
                 else{
                     dayparts <- paste(rep(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), each = 4), c("0:00","6:00", "12:00", "18:00"))
-                    lackingtime <-which(!dayparts %in% y[["pora"]])
-                    y <- rbind(y, data_frame(pora = dayparts[lackingtime], n = rep(0, length(lackingtime))))
-                    ggplot(y, aes(x = factor(pora, dayparts), y = n, group = 1)) +
-                        geom_point(size = 3, color = "red") +
-                        geom_area(alpha = 0.1, fill = "red")+
-                        geom_line(color = "red") + #ponizej - guzik do powrotu do pierwszego wykresu
-                        annotate("text", x = 1.5, y =  selected_spotidane$maxvalue*1.05, label = "bold(Powróć)", parse = TRUE)+
-                        annotate("segment", x=0, xend = 3, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.06) +
-                        annotate("segment", x=0, xend = 3, y = selected_spotidane$maxvalue*1.04, yend = selected_spotidane$maxvalue*1.04) +
-                        annotate("segment", x=0, xend = 0, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
-                        annotate("segment", x=3, xend = 3, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
-                        theme_minimal()+
-                        theme(axis.text.x = element_text(angle = 60, hjust = 1))+
-                        xlab(paste0(selected_spotidane$selected, " - słuchanie w ciągu tygodnia")) +
-                        ylab("Liczba odtworzeń") +
-                        scale_x_discrete(breaks = paste(rep(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), each = 2), c("0:00", "12:00")),
-                                         limits = dayparts)
+                    lackingtimey <-which(!dayparts %in% y[["pora"]])
+                    lackingtimey2 <- which(!dayparts %in% y2[["pora"]])
+                    y <- rbind(y, data_frame(pora = dayparts[lackingtimey], n = rep(0, length(lackingtimey)), grupa = rep(1, length(lackingtimey))))
+                    y2 <- rbind(y2, data_frame(pora = dayparts[lackingtimey2], n = rep(0, length(lackingtimey2)), grupa = rep(2, length(lackingtimey2))))
+
+                    toplot <- rbind(y, y2)
+                    
+                    
+                    ggplot(toplot, aes(x = factor(pora, dayparts), y = n, group = grupa, colour = factor(grupa, 1:2), fill = factor(grupa, 1:2))) +
+                      geom_point(size = 2) +
+                      geom_area(data = toplot[toplot$grupa==1,], aes(x = factor(pora, dayparts), y = n, colour = NULL ), alpha = 0.3) +
+                      geom_area(data = toplot[toplot$grupa==2,], aes(x = factor(pora, dayparts), y = n, colour = NULL), alpha = 0.1) +
+                      geom_line(colour = c(rep("red", 28), rep("gray", 28))) + #ponizej - guzik do powrotu do pierwszego wykresu
+                      annotate("text", x = 1.5, y =  selected_spotidane$maxvalue*1.05, label = "bold(Powróć)", parse = TRUE)+
+                      annotate("segment", x=0, xend = 3, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.06) +
+                      annotate("segment", x=0, xend = 3, y = selected_spotidane$maxvalue*1.04, yend = selected_spotidane$maxvalue*1.04) +
+                      annotate("segment", x=0, xend = 0, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
+                      annotate("segment", x=3, xend = 3, y = selected_spotidane$maxvalue*1.06, yend = selected_spotidane$maxvalue*1.04) +
+                      theme_minimal()+
+                      theme(axis.text.x = element_text(angle = 60, hjust = 0.8),
+                            legend.position = c(0.9, 0.8),
+                            legend.title = element_blank())+
+                      xlab(paste0(selected_spotidane$selected, " - słuchanie w ciągu tygodnia")) +
+                      ylab("Liczba odtworzeń") +
+                      scale_x_discrete(breaks = paste(rep(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), each = 2), c("0:00", "12:00")),
+                                       limits = dayparts) +
+                      scale_color_manual(values = c("red", "gray"), labels = c("Wybrany zakres", "Przekrój danych")) +
+                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres", "Przekrój danych"))  
                 }
                 
             }
