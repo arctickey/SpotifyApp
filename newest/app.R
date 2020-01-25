@@ -8,6 +8,7 @@ library(dplyr)
 library(plotly)
 library(png)
 library(ggplot2)
+library(ggjoy)
 options(stringsAsFactors = FALSE)
 
 
@@ -438,8 +439,27 @@ server <- function(input, output, session) {
             }
             ###koniec lewego wykresu
             else if(which(selected_spotidane$window) == 3){
-                plot.new()
-                text(0.1, 0.9, "Wykres Jacka")
+              df <- spotidane$data %>%
+                filter(endTime >= selected_spotidane$begin_date) %>%
+                filter(endTime <= selected_spotidane$end_date) %>%
+                filter(artistName == selected_spotidane$selected) %>%
+                group_by(trackName, endTime) %>% summarise(count = length(trackName), time = sum(msPlayed)) %>%
+                arrange(desc(time)) %>% ungroup() %>% mutate(trackName = factor(trackName, unique(trackName)))
+              temp <- df %>% group_by(trackName) %>% summarise(count = sum(time)) %>% arrange(desc(count)) %>% slice(1:10)
+              df <- df %>% filter(trackName %in% temp$trackName)
+              
+              ggplot(df, aes(x=endTime, y=trackName, fill = trackName)) +
+                geom_joy(scale=2) +
+                scale_fill_manual(values=rep(c('#9ecae1', '#3182bd'), length(unique(df$trackName))/2)) +
+                scale_y_discrete(expand = c(0.01, 0)) +
+                xlab('') +
+                theme_joy() +
+                labs(title = "Częstość słuchania utworów") +
+                theme(legend.position = 'none', axis.title.y = element_blank())
+              # library(ggridges)
+              # ggplot(df, aes(x = endTime, y = trackName, height = time)) +
+              #   geom_density_ridges(stat = "identity") +
+              #   theme_ridges()
             }
             
         }
