@@ -325,6 +325,7 @@ server <- function(input, output, session) {
                 scale_fill_viridis_d(alpha=0.7,guide='none')+
                 scale_y_discrete(expand = c(0.1, 0))+
                 theme(legend.position = 'none', axis.title.y = element_blank())+
+                annotate("text", x = 35, y =  13, label = "• 2 •", size = 7, fontface = "bold") +
                 theme_ridges()
               
             }
@@ -384,7 +385,7 @@ server <- function(input, output, session) {
                       annotate("segment", x=3, xend = 3, y = selected_spotidane$maxvalue*1.08, yend = selected_spotidane$maxvalue*1.02) +
                       theme_minimal()+
                       theme(axis.text.x = element_text(hjust = 0.8),
-                            legend.position = c(0.85, 0.9),
+                            legend.position = c(0.85, 0.85),
                             legend.title = element_blank())+
                       labs(title = paste0(selected_spotidane$selected, " - liczba odtworzeń w ciągu tygodnia")) +
                       ylab("Liczba odtworzeń") +
@@ -393,7 +394,8 @@ server <- function(input, output, session) {
                                        limits = dayparts,
                                        labels = weekdays(date("2020-01-20") + 0:6)) +
                       scale_color_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty")) +
-                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty"))  
+                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty")) +
+                      annotate("text", x = 25, y =  selected_spotidane$maxvalue*1.05, label = "1 • •", size = 7, fontface = "bold")
                   
                     
                     ###robienie tooltipa: 
@@ -464,20 +466,21 @@ server <- function(input, output, session) {
                 filter(endTime >= selected_spotidane$begin_date) %>%
                 filter(endTime <= selected_spotidane$end_date) %>%
                 filter(artistName == selected_spotidane$selected) %>%
+                mutate(endTime = as.Date(endTime)) %>%
                 group_by(trackName, endTime) %>% summarise(count = length(trackName), time = sum(msPlayed)) %>%
                 arrange(desc(time)) %>% ungroup() %>% mutate(trackName = factor(trackName, unique(trackName)))
               temp <- df %>% group_by(trackName) %>% summarise(count = sum(time)) %>% arrange(desc(count)) %>% slice(1:10)
               df <- df %>% filter(trackName %in% temp$trackName)
               
               ggplot(df, aes(x=endTime, y=trackName, fill = trackName)) +
-                geom_joy(scale=2) +
+                geom_joy() +
                 scale_fill_manual(values=rep(c('#9ecae1', '#3182bd'), length(unique(df$trackName))/2)) +
                 scale_y_discrete(expand = c(0.01, 0)) +
                 xlab('') +
                 theme_joy() +
                 labs(title = "Częstość słuchania utworów") +
-                theme(legend.position = 'none', axis.title.y = element_blank())
-           
+                theme(legend.position = 'none', axis.title.y = element_blank()) +
+                annotate("text", x = selected_spotidane$end_date, y =  10.5, label = "• • 3", size = 7, fontface = "bold")
             }
             
         }
