@@ -186,10 +186,11 @@ server <- function(input, output, session) {
                 }
             }
                 
-                
+              
             }
             else if(which(selected_spotidane$window)==2){
-                
+        
+              
             }
             else if(which(selected_spotidane$window)==3){
                 
@@ -306,9 +307,26 @@ server <- function(input, output, session) {
             selected_spotidane$selected <- paste(unlist(strsplit(artist, split = " "))[-1], collapse = " ")
 
             if(which(selected_spotidane$window)==2){
-                ### srodkowy wykres
-             plot.new()
-                text(0.1, 0.2, "Miejsce Filipa")
+              df <- spotidane$data %>%
+                filter(endTime >= selected_spotidane$begin_date) %>%
+                filter(endTime <= selected_spotidane$end_date) %>%
+                filter(artistName == selected_spotidane$selected)
+              df$month <- month(df$endTime,label=TRUE)
+              df$month <- fct_rev(factor(df$month))
+              df$day <- day(df$endTime)
+                
+              
+              
+              ggplot(df1,aes(x=day,y=month,fill=month))+
+                geom_density_ridges(scale = 3, rel_min_height = 0.01) +
+                xlab('') +
+                ylab('')+
+                labs(title = "Częstość słuchania zespołu z podziałem na miesiące") +
+                scale_fill_viridis_d(alpha=0.7,guide='none')+
+                scale_y_discrete(expand = c(0.1, 0))+
+                theme(legend.position = 'none', axis.title.y = element_blank())+
+                theme_ridges()
+              
             }
             ##koniec srodkowego wykresu
             
@@ -438,6 +456,9 @@ server <- function(input, output, session) {
                 
             }
             ###koniec lewego wykresu
+            
+            
+            ##poczatek prawego wykresu Jacy
             else if(which(selected_spotidane$window) == 3){
               df <- spotidane$data %>%
                 filter(endTime >= selected_spotidane$begin_date) %>%
@@ -456,10 +477,7 @@ server <- function(input, output, session) {
                 theme_joy() +
                 labs(title = "Częstość słuchania utworów") +
                 theme(legend.position = 'none', axis.title.y = element_blank())
-              # library(ggridges)
-              # ggplot(df, aes(x = endTime, y = trackName, height = time)) +
-              #   geom_density_ridges(stat = "identity") +
-              #   theme_ridges()
+           
             }
             
         }
