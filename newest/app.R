@@ -317,7 +317,7 @@ server <- function(input, output, session) {
                 
               
               
-              ggplot(df1,aes(x=day,y=month,fill=month))+
+              ggplot(df,aes(x=day,y=month,fill=month))+
                 geom_density_ridges(scale = 3, rel_min_height = 0.01) +
                 xlab('') +
                 ylab('')+
