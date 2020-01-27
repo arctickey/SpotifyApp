@@ -316,7 +316,11 @@ server <- function(input, output, session) {
               df$day <- day(df$endTime)
                 
               
-              
+              if(nrow(df)==0) {
+                plot.new()
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
+              }
+              else{
               ggplot(df,aes(x=day,y=month,fill=month))+
                 geom_density_ridges(scale = 3, rel_min_height = 0.01) +
                 xlab('') +
@@ -327,6 +331,7 @@ server <- function(input, output, session) {
                 theme(legend.position = 'none', axis.title.y = element_blank())+
                 annotate("text", x = 35, y =  13, label = "• 2 •", size = 7, fontface = "bold") +
                 theme_ridges()
+              }
               
             }
             ##koniec srodkowego wykresu
@@ -472,6 +477,11 @@ server <- function(input, output, session) {
               temp <- df %>% group_by(trackName) %>% summarise(count = sum(time)) %>% arrange(desc(count)) %>% slice(1:10)
               df <- df %>% filter(trackName %in% temp$trackName)
               
+              if(nrow(df)==0) {
+                plot.new()
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
+              }
+              else{
               ggplot(df, aes(x=endTime, y=trackName, fill = trackName)) +
                 geom_joy() +
                 scale_fill_manual(values=rep(c('#9ecae1', '#3182bd'), length(unique(df$trackName))/2)) +
@@ -481,6 +491,7 @@ server <- function(input, output, session) {
                 labs(title = "Częstość słuchania utworów") +
                 theme(legend.position = 'none', axis.title.y = element_blank()) +
                 annotate("text", x = selected_spotidane$end_date, y =  10.5, label = "• • 3", size = 7, fontface = "bold")
+              }
             }
             
         }
