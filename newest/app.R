@@ -451,9 +451,9 @@ server <- function(input, output, session) {
               df <- df %>% filter(trackName %in% temp$trackName)
               
               ggplot(df, aes(x=endTime, y=trackName, fill = trackName)) +
-                geom_joy(scale=2) +
+                geom_joy(scale=2, alpha = 0.8) +
                 scale_fill_manual(values=rep(c('#9ecae1', '#3182bd'), length(unique(df$trackName))/2)) +
-                scale_y_discrete(expand = c(0.01, 0)) +
+                scale_y_discrete(expand = c(0.01, 0), labels = function(d){label = ifelse(nchar(d)>17, paste0(substr(d, 1, 17), "..."), d)}) +
                 xlab('') +
                 theme_joy() +
                 labs(title = "Częstość słuchania utworów") +
