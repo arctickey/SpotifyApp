@@ -324,11 +324,12 @@ server <- function(input, output, session) {
                 geom_density_ridges(scale = 3, rel_min_height = 0.01) +
                 xlab('') +
                 ylab('')+
-                labs(title = "Częstość słuchania zespołu z podziałem na miesiące") +
+                labs(title = "Częstość słuchania zespołu z podziałem na miesiące", caption = "• 2 •") +
                 scale_fill_viridis_d(alpha=0.7,guide='none')+
                 scale_y_discrete(expand = c(0.1, 0))+
-                theme(legend.position = 'none', axis.title.y = element_blank())+
-                annotate("text", x = 35, y =  13, label = "• 2 •", size = 7, fontface = "bold") +
+                theme(legend.position = 'none', axis.title.y = element_blank(),
+                      plot.caption = element_text(size = 7))+
+                # annotate("text", x = 35, y =  13, label = "• 2 •", size = 7, fontface = "bold") +
                 theme_ridges()
               }
               
@@ -390,16 +391,19 @@ server <- function(input, output, session) {
                       theme_minimal()+
                       theme(axis.text.x = element_text(hjust = 0.8),
                             legend.position = c(0.85, 0.85),
-                            legend.title = element_blank())+
-                      labs(title = paste0(selected_spotidane$selected, " - liczba odtworzeń w ciągu tygodnia")) +
+                            legend.title = element_blank(),
+                            plot.caption = element_text(size = 12, hjust = 0.98))+
+                      labs(title = paste0(selected_spotidane$selected, " - liczba odtworzeń w ciągu tygodnia"),  caption = "1 • •") +
                       ylab("Liczba odtworzeń") +
                       xlab(element_blank()) +
                       scale_x_discrete(breaks = paste(weekdays(date("2020-01-20") + 0:6, abbreviate = TRUE), "12:00"),
                                        limits = dayparts,
                                        labels = weekdays(date("2020-01-20") + 0:6)) +
                       scale_color_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty")) +
-                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty")) +
-                      annotate("text", x = 25, y =  selected_spotidane$maxvalue*1.05, label = "1 • •", size = 7, fontface = "bold")
+                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty"))
+                      # annotate("text", x = 25, y =  selected_spotidane$maxvalue*1.05, label = "1 • •", size = 7, fontface = "bold")
+                     
+                    
                   
                     
                     ###robienie tooltipa: 
@@ -490,9 +494,10 @@ server <- function(input, output, session) {
                 scale_y_discrete(expand = c(0.01, 0), labels = function(d){label = ifelse(nchar(d)>17, paste0(substr(d, 1, 17), "..."), d)}) +
                 xlab('') +
                 theme_joy() +
-                labs(title = "Częstość słuchania utworów") +
-                theme(legend.position = 'none', axis.title.y = element_blank()) +
-                annotate("text", x = selected_spotidane$end_date, y =  10.5, label = "• • 3", size = 7, fontface = "bold")
+                labs(title = "Częstość słuchania utworów", caption = "• • 3") +
+                theme(legend.position = 'none', axis.title.y = element_blank(),
+                      plot.caption = element_text(size = 12))
+                #annotate("text", x = selected_spotidane$end_date, y =  10.5, label = "• • 3", size = 7, fontface = "bold")
               }
             }
             
@@ -503,11 +508,11 @@ server <- function(input, output, session) {
     output$Opis <- renderUI({
         req(input$files)
         if(!selected_spotidane$click){
-        HTML(paste("Użyj strzałek na klawiaturze", "   - sprawdź co się stanie!", sep="<br/>"))
+        HTML(paste("WSKAZÓWKA:", "Użyj strzałek na klawiaturze", "   - sprawdź co się stanie!", sep="<br/>"))
         }
         else{
-          if(selected_spotidane$window[1]){HTML(paste("Aby dowiedzieć się więcej,", "najedź na punkt", sep="<br/>"))} #dla wykresu Pawła
-          else{HTML(paste("Użyj strzałek na klawiaturze", "   - tym razem na boki!", sep="<br/>"))}
+          if(selected_spotidane$window[1]){HTML(paste("WSKAZÓWKA:", "Aby dowiedzieć się więcej,", "najedź na punkt", sep="<br/>"))} #dla wykresu Pawła
+          else{HTML(paste("WSKAZÓWKA:", "Użyj strzałek na klawiaturze", "   - tym razem na boki!", sep="<br/>"))}
         }
     })
     
