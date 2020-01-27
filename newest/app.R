@@ -21,7 +21,6 @@ ui <- fluidPage(theme = shinytheme("superhero"),
                     sidebarPanel(width=4,
                                  titlePanel("SpotiData - sprawdź swoje statystyki słuchania", windowTitle = "SpotiData"),
                                  hr(),
-                                 verbatimTextOutput("dz"),
                                  actionButton("zima", "Zima", width = "110px"),
                                  actionButton("wiosna", "Wiosna", width = "110px"),
                                  actionButton("lato", "Lato", width = "110px"),
@@ -186,10 +185,11 @@ server <- function(input, output, session) {
                 }
             }
                 
-                
+              
             }
             else if(which(selected_spotidane$window)==2){
-                
+        
+              
             }
             else if(which(selected_spotidane$window)==3){
                 
@@ -306,9 +306,32 @@ server <- function(input, output, session) {
             selected_spotidane$selected <- paste(unlist(strsplit(artist, split = " "))[-1], collapse = " ")
 
             if(which(selected_spotidane$window)==2){
-                ### srodkowy wykres
-             plot.new()
-                text(0.1, 0.2, "Miejsce Filipa")
+              df <- spotidane$data %>%
+                filter(endTime >= selected_spotidane$begin_date) %>%
+                filter(endTime <= selected_spotidane$end_date) %>%
+                filter(artistName == selected_spotidane$selected)
+              df$month <- month(df$endTime,label=TRUE)
+              df$month <- fct_rev(factor(df$month))
+              df$day <- day(df$endTime)
+                
+              
+              if(nrow(df)==0) {
+                plot.new()
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
+              }
+              else{
+              ggplot(df,aes(x=day,y=month,fill=month))+
+                geom_density_ridges(scale = 3, rel_min_height = 0.01) +
+                xlab('') +
+                ylab('')+
+                labs(title = "Częstość słuchania zespołu z podziałem na miesiące") +
+                scale_fill_viridis_d(alpha=0.7,guide='none')+
+                scale_y_discrete(expand = c(0.1, 0))+
+                theme(legend.position = 'none', axis.title.y = element_blank())+
+                annotate("text", x = 35, y =  13, label = "• 2 •", size = 7, fontface = "bold") +
+                theme_ridges()
+              }
+              
             }
             ##koniec srodkowego wykresu
             
@@ -366,7 +389,7 @@ server <- function(input, output, session) {
                       annotate("segment", x=3, xend = 3, y = selected_spotidane$maxvalue*1.08, yend = selected_spotidane$maxvalue*1.02) +
                       theme_minimal()+
                       theme(axis.text.x = element_text(hjust = 0.8),
-                            legend.position = c(0.85, 0.9),
+                            legend.position = c(0.85, 0.85),
                             legend.title = element_blank())+
                       labs(title = paste0(selected_spotidane$selected, " - liczba odtworzeń w ciągu tygodnia")) +
                       ylab("Liczba odtworzeń") +
@@ -375,7 +398,8 @@ server <- function(input, output, session) {
                                        limits = dayparts,
                                        labels = weekdays(date("2020-01-20") + 0:6)) +
                       scale_color_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty")) +
-                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty"))  
+                      scale_fill_manual(values = c("red", "gray"), labels = c("Wybrany zakres dat", "Wszystkie dostępne daty")) +
+                      annotate("text", x = 25, y =  selected_spotidane$maxvalue*1.05, label = "1 • •", size = 7, fontface = "bold")
                   
                     
                     ###robienie tooltipa: 
@@ -440,16 +464,26 @@ server <- function(input, output, session) {
                 
             }
             ###koniec lewego wykresu
+            
+            
+            ##poczatek prawego wykresu Jacy
             else if(which(selected_spotidane$window) == 3){
               df <- spotidane$data %>%
                 filter(endTime >= selected_spotidane$begin_date) %>%
                 filter(endTime <= selected_spotidane$end_date) %>%
                 filter(artistName == selected_spotidane$selected) %>%
+                mutate(endTime = as.Date(endTime)) %>%
                 group_by(trackName, endTime) %>% summarise(count = length(trackName), time = sum(msPlayed)) %>%
                 arrange(desc(time)) %>% ungroup() %>% mutate(trackName = factor(trackName, unique(trackName)))
               temp <- df %>% group_by(trackName) %>% summarise(count = sum(time)) %>% arrange(desc(count)) %>% slice(1:10)
               df <- df %>% filter(trackName %in% temp$trackName)
               
+              if(nrow(df)==0) {
+                plot.new()
+                text(0.5,0.5,"Wybrany zakres dat nie zwrócił żadnych wyników dla danego pliku")
+              }
+              else{
+                
               ggplot(df, aes(x=endTime, y=trackName, fill = trackName)) +
                 geom_joy(scale=2, alpha = 0.8) +
                 scale_fill_manual(values=rep(c('#9ecae1', '#3182bd'), length(unique(df$trackName))/2)) +
@@ -457,11 +491,9 @@ server <- function(input, output, session) {
                 xlab('') +
                 theme_joy() +
                 labs(title = "Częstość słuchania utworów") +
-                theme(legend.position = 'none', axis.title.y = element_blank())
-              # library(ggridges)
-              # ggplot(df, aes(x = endTime, y = trackName, height = time)) +
-              #   geom_density_ridges(stat = "identity") +
-              #   theme_ridges()
+                theme(legend.position = 'none', axis.title.y = element_blank()) +
+                annotate("text", x = selected_spotidane$end_date, y =  10.5, label = "• • 3", size = 7, fontface = "bold")
+              }
             }
             
         }
@@ -479,9 +511,6 @@ server <- function(input, output, session) {
         }
     })
     
-    output$dz <- renderText({
-      selected_spotidane$test
-    })
 }
 
 
